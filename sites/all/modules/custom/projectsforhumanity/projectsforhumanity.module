@@ -1,0 +1,586 @@
+<?php
+
+function projectsforhumanity_menu(){
+	$items = array();
+
+
+
+
+	 $items['pfh/milestones']  = array(
+	'title' => t('Milestones test'),
+	'page callback' => 'milestone_callbck',
+	 'access arguments' => array('access content'),
+	//'type' => MENU_LOCAL_TASK, //rendered as tab
+	'type' => MENU_LOCAL_ACTION, // rendered as page
+	 );
+	 
+	  $items['pfh']  = array(
+	'title' => t('Milestones test'),
+	'page callback' => 'get_project_progress_data',
+	 'access arguments' => array('access content'),
+	//'type' => MENU_LOCAL_TASK, //rendered as tab
+	'type' => MENU_LOCAL_ACTION, // rendered as page
+	 );
+	
+	$items['pfh/milestones/create']  = array(
+	'title' => t('Milestones test'),
+	'page callback' => 'drupal_get_form',
+    'page arguments' => array('projectsforhumanity_milestone_form'),
+	 'access arguments' => array('access content'),
+	//'type' => MENU_LOCAL_TASK, //rendered as tab
+	'type' => MENU_CALLBACK, // rendered as page
+	 );
+	 
+         $items['ajax_link_callback'] = array(
+		'page callback' => 'ajax_link_response',
+		'access callback' => 'user_access',
+		'access arguments' => array('access content'),
+		'type' => MENU_CALLBACK,
+	  );
+	 
+	return $items;
+}
+function create_mlstn_form_htmls()
+{
+	$html_form = drupal_get_form('projectsforhumanity_milestone_form');
+	$html = drupal_render($html_form);
+	return $html;
+}
+
+function milestone_callbck () {
+    
+    $header = array(
+        array('data' => 'MID', 'field' => 'nid', 'sort' => 'asc'),
+        array('data' => 'Milestone', 'field' => 'title'),
+        array('data' => 'Status', 'field' => 'status'),
+    ); 
+
+    $query = db_select('node', 'n');
+    $query->leftjoin('field_data_field_project_parent_project', 'fdfppp', 'fdfppp.field_project_parent_project_nid = n.nid');
+    $query->leftjoin('field_data_field_milestone_pc_complete', 'fdfmpc', 'fdfmpc.entity_id = n.nid');
+    $query->leftjoin('field_data_field_ms_completion_date', 'fdfmcd', 'fdfmcd.entity_id = n.nid');
+    $query->fields ('n', array (
+            'nid',
+            'uid',
+            'title',
+            'created',
+        )
+    );
+    $query->fields ('fdfppp', array ('field_project_parent_project_nid'));
+    $query->fields ('fdfmpc', array ('field_milestone_pc_complete_value'));
+    $query->fields ('fdfmcd', array ('field_ms_completion_date_value'));
+    //$query->condition('fdfppp.entity_type', 'node', '=');
+    //$query->condition('fdfmpc.entity_type', 'node', '=');
+    //$query->condition('fdfmcd.entity_type', 'node', '=');
+    //$query->condition('n.type', 'project', '=');
+    $query->extend('TableSort')
+        ->orderByHeader($header);
+    $query = $query->extend('PagerDefault')
+        ->limit(20);
+    $results = $query->execute();
+    drupal_add_library('system', 'drupal.ajax');
+    $row = array();
+    foreach ($results as $record) 
+    {
+        $node = node_load($record->nid);
+        $row[] = array(
+                              // output 1 cell in 1 row   l($node->title, 'node/'. $node->nid .'/edit'),
+                            array('data' => t($record->nid)), 
+                            array('data' => l($record->title, 'node/'. $record->uid)),  
+                             array('data' => t($record->field_milestone_pc_complete_value)), 
+
+
+                              array('data' => l(t('Delete'), 'ajax_link_callback/nojs/'.$record->nid.'/'.$record->nid, array('attributes' => array('class' => array('use-ajax'))))),  
+                            ); 
+
+            }
+            //return theme_table(array('header' => $header, 'rows'=> $row)).theme("pager");
+
+            $output = theme_table(
+            array(
+              "header" => $header,
+              "rows" => $row,
+              "attributes" => array(),
+              "sticky" => true, // Table header will be sticky
+              "caption" => "",
+              "colgroups" => array(),
+              "empty" => t("Table has no row!") // The message to be displayed if table is empty
+            )
+          ).theme("pager");
+         return $output; 
+}
+function projectsforhumanity_milestone_form($form, &$form_state)
+{
+	//$testnode = node_load(103);
+	//drupal_set_message(print_r($testnode,true));
+	$form_state['redirect'] = array(
+        'node/'.arg(3),
+    
+  );
+  $form['box'] = array(
+    '#type' => 'markup',
+    '#prefix' => '<div id="box">',
+    '#suffix' => '</div>',
+    '#markup' => get_milestone_data(),
+  );
+  if (user_access('milestones: Create new content')) {
+    
+
+			$form['title'] = array(
+				'#type' => 'textfield',
+				'#title' => t('Title'),
+				'#required' => true,
+				'#attributes' => array('class' => array('form-control'), 'placeholder' => array('Title'))
+			);
+			$form['body'] = array(
+				'#type' => 'textarea',
+				'#title' => t('Description'),
+				'#attributes' => array('class' => array('form-control'))
+			);
+			$form['parent_project'] = array( 
+				'#type' => 'select',
+				'#default_value'=>arg(1),
+				'#required' => true,
+				'#options' => get_projects(),
+				'#title' => t('Parent Project'),
+				'#attributes' => array('class' => array('form-control'))
+			);
+			$form['complete'] = array( 
+				'#type' => 'textfield',
+				'#default_value'=>0,
+				'#title' => t('Percentage Complete'),
+				'#attributes' => array('class' => array('form-control'))
+			);			
+			$form['completiondate'] = array(
+				'#title' => t('Completion Date'),
+				'#type' => 'date_popup',
+				'#date_format' => 'Y-m-d',
+				'#default_value' => 'Y-m-d 00:00:00',
+				'#date_year_range' => '-10:+10',
+				'#size' => 12,
+				'#attributes' => array('class' => array('form-control')),
+			  );
+			
+			$form['submit'] = array(
+				'#type' => 'submit',
+				'#attributes' => array('class' => array('btn','btn-success')),
+				'#ajax' => array(
+					'callback' => 'create_new_milestone',
+					'wrapper' => 'box',
+					),
+				'#value' => t('Submit'),
+			);
+	 }
+	return $form;
+}
+
+function get_projects()
+{
+	
+	$query = db_select('node', 'n');
+    $query->fields ('n', array (
+            'nid',
+            'title',
+        )
+    );
+	$query->condition('n.type', 'project', '=');
+	$query->condition('n.status', '1', '=');
+    $results = $query->execute();
+    $projects = array();
+    foreach ($results as $record) 
+    {
+		$projects[$record->nid] =$record->title;
+	}
+	return $projects;
+}
+function get_milestones( $nid = NULL)
+{
+	
+	$query = db_select('node', 'n');
+    $query->fields ('n', array (
+            'nid',
+            'title',
+        )
+    );
+	$query->leftjoin('field_data_field_project_parent_project', 'fdfppp', 'fdfppp.entity_id = n.nid');
+	$query->condition('n.type', 'milestones', '=');
+	$query->condition('n.status', '1', '=');
+	if (isset($nid))
+	{ 
+		$query->condition('fdfppp.field_project_parent_project_nid', $nid, '=');
+	}
+    $results = $query->execute();
+    $projects = array();
+    foreach ($results as $record) 
+    {
+		$projects[$record->nid] =$record->title;
+	}
+	return $projects;
+}
+function get_tasks()
+{
+	
+	$query = db_select('node', 'n');
+    $query->fields ('n', array (
+            'nid',
+            'title',
+        )
+    );
+	$query->condition('n.type', 'tasks', '=');
+	$query->condition('n.status', '1', '=');
+    $results = $query->execute();
+    $projects = array();
+    foreach ($results as $record) 
+    {
+		$projects[$record->nid] =$record->title;
+	}
+	return $projects;
+}
+/*
+function projectsforhumanity_milestone_form_submit($form, &$form_state)
+{
+	//create a node here
+	//then refresh the list of milestones
+	//$element = $form['ajaxlink'];
+	//$element['#markup'] = '<a href="/pfh/milestones/create?width=600&height=600">New Link, New node created</a>';
+	//return $element;
+	
+	drupal_set_message('Milestone added');
+	drupal_set_message ($form_state['values']['parent_project']);
+	drupal_goto ('node/'.$form_state['values']['parent_project']);
+	
+	
+}
+*/
+
+function projectsforhumanity_task_form($form, &$form_state)
+{
+	
+	$form['title'] = array(
+		'#type' => 'textfield',
+		'#default_value'=>0,
+		'#title' => t('Title'),
+	);
+	$form['body'] = array(
+		'#type' => 'textarea',
+		'#default_value'=>0,
+		'#title' => t('Description'),
+	);
+	$form['parent_milestone'] = array(
+		'#type' => 'select',
+		'#default_value'=>arg(3),
+		'#options' => get_milestones(),
+		'#title' => t('Parent Milestone'),
+	);
+	$form['parent_project'] = array(
+		'#type' => 'select',
+		'#default_value'=>arg(3),
+		'#options' => get_projects(),
+		'#title' => t('Parent Project'),
+	);
+	$form['parent_task'] = array(
+		'#type' => 'select',
+		'#default_value'=>arg(3),
+		'#options' => get_tasks(),
+		'#title' => t('Parent Task'),
+	);
+	$form['start_date'] = array(
+		'#type' => 'date_popup',
+		'#default_value'=>0,
+		'#title' => t('Start Date'),
+	);
+	$form['end_date'] = array(
+		'#type' => 'date_popup',
+		'#default_value'=>0,
+		'#title' => t('Completion Date'),
+	);
+	$form['category'] = array(
+		'#type' => 'textfield',
+		'#default_value'=>0,
+		'#title' => t('Category'),
+	);
+	$form['status'] = array(
+		'#type' => 'textfield',
+		'#default_value'=>0,
+		'#title' => t('Status'),
+	);
+	$form['assignedto'] = array(
+		'#type' => 'textfield',
+		'#default_value'=>0,
+		'#title' => t('Assigned to'),
+	);
+	$form['tasktype'] = array(
+		'#type' => 'textfield',
+		'#default_value'=>0,
+		'#title' => t('Task type'),
+	);
+	$form['progress'] = array(
+		'#type' => 'textfield',
+		'#default_value'=>0,
+		'#title' => t('Progress'),
+	);
+	$form['monetary'] = array(
+		'#type' => 'textfield',
+		'#default_value'=>0,
+		'#title' => t('Monetary Equivalent'),
+	);
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#attributes' => array('class' => array('btn','btn-success')),
+		//'#ajax' => array(
+		//	'callback' => 'create_new_milestone',
+		//	'wrapper' => 'box',
+		//	),
+		'#value' => t('Submit'),
+	);
+	return $form;
+}
+
+function projectsforhumanity_block_info() {
+  $blocks['irecruit'] = array(
+    'info' => t('Milestones'), 
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['projectprogress'] = array(
+    'info' => t('Project Progress'), 
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  $blocks['paypaldonate'] = array(
+    'info' => t('Paypal Donate'), 
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  return $blocks;
+}
+
+function projectsforhumanity_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    
+    case 'irecruit':
+      if (user_access('access content')) {
+        $block['subject'] = t('Milestones');
+       
+          $block['content'] = t(create_mlstn_form_htmls());
+      }
+      break;
+	 case 'projectprogress':
+      if (user_access('access content')) {
+        $block['subject'] = t('Project Progress');
+       
+          $block['content'] = t(get_project_progress_data());
+      }
+      break;
+	  case 'paypaldonate':
+      if (user_access('access content')) {
+        $block['subject'] = t(' ');
+       
+          $block['content'] = t(paypal_donation_details());
+      }
+      break;
+  }
+  return $block;
+}
+function get_milestone_data()
+{
+	$nodes = get_milestones(arg(1));
+	$html ='';
+	foreach ($nodes as $current_node=>$value)
+	{
+		$node = node_load($current_node);
+		//$complete = $node->field_milestone_pc_complete['und'][0]['value'];
+		$complete = (!isset($node->field_milestone_pc_complete['und'][0]['value']) ? 0: $node->field_milestone_pc_complete['und'][0]['value']);
+		$date2 = (!isset($node->field_ms_completion_date['und'][0]['value']) ? date('m/d/Y', time()): date('m/d/Y',strtotime($node->field_ms_completion_date['und'][0]['value'])));
+		$date1 = date('m/d/Y', time());
+		//if ($remainingtime )
+		//+ on course
+		//- past
+		$classes = 'progress-bar progress-bar-info';
+		$diff = abs(strtotime($date2) - strtotime($date1));
+
+		$years = floor($diff / (365*60*60*24));
+		$months = floor(($diff - $years * 365*60*60*24) / (30*60*60*24));
+		$days = floor(($diff - $years * 365*60*60*24 - $months*30*60*60*24)/ (60*60*24));
+		$tdays = floor($diff / (60*60*24));
+
+		if (strtotime($date1) > strtotime($date2))
+		{
+			if ($tdays >= 0 && $tdays <= 5){
+				$classes = 'progress-bar progress-bar-warning';
+			}
+			else{
+				$classes = 'progress-bar progress-bar-danger';
+			}
+		}
+		elseif($tdays >= 0 && $tdays <= 5)
+		{
+			$classes = 'progress-bar progress-bar-info';
+		}
+		else {
+			$classes = 'progress-bar progress-bar-success';
+		}
+
+		
+		
+		$html .='<div>
+                                    <p>
+                                        <strong>'.l(t($node->title), 'node/'.$node->nid,
+													array(
+														'attributes' => array(
+															'class'=> array('colorbox-node')
+															),
+														'query' => array('width' => '600', 'height'=>'600'))
+													).
+'</strong>
+                                        <span class="pull-right text-muted">'.$complete.'%</span>
+                                    </p>
+                                    <div class="progress progress-striped active">
+                                        <div class="'.$classes.'" role="progressbar" aria-valuenow="'.$complete.'" aria-valuemin="0" aria-valuemax="100" style="width: '.$complete.'%">
+                                            <span class="sr-only">'.$complete.'% Complete (success)</span>
+                                        </div>
+                                    </div>
+                                </div>';
+	}
+	//$html .= create_mlstn_form_htmls();
+	return $html;
+}
+                      
+function get_project_progress_data()
+{
+$project = node_load(arg(1));
+	
+	//$done = $project->field_project_progress['und'][0]['value'];
+	$done = (!isset($node->field_project_progress['und'][0]['value']) ? 0: $node->field_project_progress['und'][0]['value']);
+	
+	$data = array(
+                array('score' => 'Done', 'votes' => $done),
+                array('score' => 'Outstanding', 'votes' => 100 - $done),
+              );
+  
+      
+ 
+  $options_pie = array(
+    'title' => t('Project Progress'),
+    'fields' => array(
+      'votes' => array(
+        'label' => t('Percentage'),
+        'enabled' => TRUE,
+      ),
+    ),
+    'xAxis' => array(
+      'labelField' => 'score',
+    ),
+    'data' => $data,
+    'type' => 'pie',
+	'colors' => array('#ffffff','#666666'),
+  );
+ 
+  $options_column = array(
+    'title' => t('Project Progress'),
+    'fields' => array(
+      'votes' => array(
+        'label' => t('Percentage'),
+        'enabled' => TRUE,
+      ),
+    ),
+    'xAxis' => array(
+      'labelField' => 'score',
+    ),
+    'data' => $data,
+    'type' => 'column',
+	'colors' => array('#ffffff','#666666'),
+  );
+ 
+  $build['pie'] =  array(
+    '#theme' => 'visualization',
+    '#options' => $options_pie,
+  );
+ 
+  return $build;
+
+}
+
+function create_new_milestone($form, $form_state) {
+  // In most cases, it is recomended that you put this logic in form generation
+  // rather than the callback. Submit driven forms are an exception, because
+  // you may not want to return the form at all.
+  
+  $title = $form_state['values']['title'];
+  $body = $form_state['values']['body'];
+  $parent_project = $form_state['values']['parent_project'];
+  $complete = $form_state['values']['complete'];
+  $completiondate = $form_state['values']['completiondate'];
+
+//=====================================
+ global $user;
+  $node = new stdClass();
+  $node->title = $title;
+  $node->type = 'milestones';
+  node_object_prepare($node); // Sets some defaults. Invokes hook_prepare() and hook_node_prepare().
+  $node->language = LANGUAGE_NONE; // Or e.g. 'en' if locale is enabled
+  $node->uid = $user->uid;
+  $node->status = 1; //(1 or 0): published or not
+  $node->promote = 0; //(1 or 0): promoted to front page
+  $node->comment = 0; // 0 = comments disabled, 1 = read only, 2 = read/write
+  // Term reference (taxonomy) field
+  $node->field_project_parent_project[$node->language][]['nid'] = $parent_project;
+  $node->field_milestone_pc_complete[$node->language][]['value'] = $complete;
+  $node->field_ms_completion_date[$node->language][]['value'] = date('Y-m-d h:i:s',strtotime($completiondate['date']));
+  //$node->field_ms_completion_date[$node->language][]['value'] = $completiondate ['time'];
+ 
+	
+  //$node->field_product_tid[$node->language][]['tid'] = $form_state['values']['a taxonomy term id'];
+  // Entity reference field
+  //$node->field_customer_nid[$node->language][] = array(
+  //  'target_id' => $form_state['values']['entity id'],
+   // 'target_type' => 'node',
+  //);
+  // 'node' is default,
+  // Other possible values are "user" and  "taxonomy_term" 
+  $node = node_submit($node); // Prepare node for saving
+  node_save($node);
+  //drupal_set_message( "Node with nid " . $node->nid . " saved!\n");
+ // $form_state['redirect']  = 'SOME WHERE';
+//=====================================
+
+  
+  $element = $form['box'];
+  $element['#markup'] = get_milestone_data();
+  return $element;
+}
+
+
+function paypal_donation_details()
+{
+	$node = node_load(arg(1));
+	$n_type = ($node->type == 'project'? 'Project' : 'Task');
+	
+	$donation = (!isset($node->field_donation_paypal_email['und'][0]['value']) ? NULL: $node->field_donation_paypal_email['und'][0]['value']);
+	if (isset($donation)){
+		$html ='
+		<div class="paypal donate paypaldonate">
+
+			<form action="https://www.paypal.com/cgi-bin/webscr" method="post" class="paypal_form donate_form paypaldonate_form">
+				<input type="hidden" name="cmd" value="_donations">
+				<input type="hidden" name="business" value="'.$donation.'">
+				<input type="hidden" name="item_name" value="Donation for '.$n_type.' '.$node->title.'">
+				<input type="hidden" name="currency_code" value="USD">
+				<input type="hidden" name="bn" value="PP-DonationsBF:btn_donateCC_LG.gif:NonHostedGuest">
+				<input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!">
+				<img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1">
+			</form>
+		</div>';
+	}
+	else
+	{
+		$html ='';
+	}
+	return ($html);
+}
+/*
+function projectsforhumanity_flag_link() {
+
+}
+*/

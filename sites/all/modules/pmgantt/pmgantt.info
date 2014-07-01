@@ -1,0 +1,15 @@
+name = PM Gantt
+description = "Provides Gantt chart functionality based on Drupal PM."
+core = 7.x
+package = Project Management
+
+dependencies[] = pmproject
+dependencies[] = pmtask
+dependencies[] = views_gantt
+
+; Information added by Drupal.org packaging script on 2014-05-08
+version = "7.x-1.0-alpha1"
+core = "7.x"
+project = "pmgantt"
+datestamp = "1399564428"
+

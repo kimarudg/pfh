@@ -1,0 +1,6 @@
+name = Projects for Humanity
+core = 7.x
+description = Delivers logic and functionality required for Projects for Humanity
+package = Projects for Humanity
+version = 7.x-1.0-1
+files[] = js/pfh.js

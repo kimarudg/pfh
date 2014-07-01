@@ -1,0 +1,85 @@
+<div class="container-fluid">
+			<div class="top-header">
+				<div class="row">
+					<div class="col-lg-4">
+						<div class="logo">
+							<?php print (render($page['header_top_logo'])); ?>
+						</div>
+					</div>
+					<div class="col-lg-7">
+						<div class="user-login">
+							<?php print (render($page['header_top_login'])); ?>
+							<a id="forgot-password" href="#">Forgot Password?</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="container-fluid">
+			<div class="navigation-container">
+				<nav class="top-navigation">
+						<?php
+					  // This code snippet is hard to modify. We recommend turning off the
+					  // "Main menu" on your sub-theme's settings form, deleting this PHP
+					  // code block, and, instead, using the "Menu block" module.
+					  // @see https://drupal.org/project/menu_block
+					  print theme('links__system_main_menu', array(
+						'links' => $main_menu,
+						'attributes' => array(
+						  'class' => array('nav', 'navbar-nav'),
+						  'role' => array('navigation'),
+						),
+						'heading' => array(
+						  'text' => t('Main menu'),
+						  'level' => 'h2',
+						  'class' => array('element-invisible'),
+						),
+					  )); ?>
+				</nav>
+			</div>
+		</div>
+		<div class="container-fluid">
+			<div class="carousel-bb">
+				<?php print (render($page['slider_region'])); ?>
+			</div>
+		</div>
+		<div class="container-fluid">
+			<!--<div class="mid-section-bg">
+					<img src="img/mt-kenya-bg.png" />
+			</div>-->
+		<div class="row mid-section">
+			<div class="">
+				<div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+					<?php print (render($page['homepage_inspiration'])); ?>
+				</div>
+			
+				<div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+					<?php print (render($page['homepage_information'])); ?>
+				</div>
+			
+				<div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+					<?php print (render($page['homepage_collaboration'])); ?>
+				</div>
+			
+				<div class="col-lg-3 col-md-3 col-sm-6 col-xs-12">
+					<?php print (render($page['homepage_funding'])); ?>
+				</div>
+			</div>
+		</div>
+		
+		</div>
+		<section class="container-fluid">
+			<div class="row">
+				<div class="partner">
+					<?php print (render($page['homepage_partners'])); ?>
+				</div>
+			</div>
+		</section>
+		<!--footer-->
+		<div class="container-fluid">
+			<footer>
+				<div class="row">
+					<?php print (render($page['homepage_footer'])); ?>
+				</div>
+			</footer>
+		</div>
